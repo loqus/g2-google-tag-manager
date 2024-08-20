@@ -15,7 +15,7 @@
         allKeys: [],
         key: "",
         localStorageKey: "g2tracking",
-        date: (new Date()).toISOString().split('T')[0], // Use ISO date string
+        date: ((t=new Date)=>(1e4*t.getFullYear()+100*t.getMonth()+t.getDate()).toString())(),
         setKey: function(t) {
             this.key = t.map(function(pair) { return pair[1]; }).join(",").replace(/\s/g, "");
         },
