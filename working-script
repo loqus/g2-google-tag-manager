@@ -1,0 +1,156 @@
+<script>
+(function(t) {
+    t || (t = document.location.href);
+
+    // Configuration constants
+    var n = "https://tracking.g2crowd.com";
+    var e = "G-XXXXXXXX"; //set this to your google analytics measurement Id
+    var i = "companyId"; //set this to your Id
+    var o = "external";
+    var a = "";
+    var s = "";
+
+    // Utility for managing localStorage
+    var r = {
+        allKeys: [],
+        key: "",
+        localStorageKey: "g2tracking",
+        date: (new Date()).toISOString().split('T')[0], // Use ISO date string
+        setKey: function(t) {
+            this.key = t.map(function(pair) { return pair[1]; }).join(",").replace(/\s/g, "");
+        },
+        isFresh: function() {
+            this.refresh();
+            return this.allKeys.indexOf(this.key) !== -1;
+        },
+        refresh: function() {
+            try {
+                var storedData = window.localStorage.getItem(this.localStorageKey);
+                if (storedData) {
+                    var parsedData = JSON.parse(storedData);
+                    this.allKeys = parsedData[this.date] || [];
+                } else {
+                    this.allKeys = [];
+                }
+            } catch (error) {
+                console.warn("localStorage access error:", error);
+                this.allKeys = [];
+            }
+        },
+        persist: function() {
+            var updatedKeys = this.isFresh() ? this.allKeys : [this.key].concat(this.allKeys);
+            var newStorageData = {};
+            newStorageData[this.date] = updatedKeys;
+            try {
+                window.localStorage.setItem(this.localStorageKey, JSON.stringify(newStorageData));
+            } catch (error) {
+                console.warn("Failed to update localStorage:", error);
+            }
+        }
+    };
+    var c = false, g = false, w = 0;
+    var d = 7; // Maximum retry attempts
+    function fibonacci(t) {
+        return t <= 1 ? t : fibonacci(t - 1) + fibonacci(t - 2);
+    }
+    function sendTrackingData(url, aid) {
+        var userAgent = window.navigator ? window.navigator.userAgent : "";
+        var screenRes = (window.screen ? window.screen.availWidth : '') + "x" + (window.screen ? window.screen.availHeight : '');
+        var language = window.navigator.language || "";
+        var timezoneOffset = (new Date()).getTimezoneOffset().toString();
+        var trackingData = [
+            ["aid", aid || ""],
+            ["ua", userAgent],
+            ["sr", screenRes],
+            ["lang", language],
+            ["tz", timezoneOffset],
+            ["sid", i],
+            ["uid", s],
+            ["e", ""]
+        ];
+        r.setKey(trackingData);
+        if (!r.isFresh()) {
+            if (navigator.sendBeacon) {
+                var formData = new FormData();
+                formData.append("pid", a);
+                formData.append("p", t);
+                formData.append("s", o);
+                trackingData.forEach(function(pair) { formData.append(pair[0], pair[1]); });
+                navigator.sendBeacon(url, formData);
+            } else if (window.fetch) {
+                var payload = {
+                    p: t,
+                    pid: a,
+                    s: o
+                };
+                trackingData.forEach(function(pair) { payload[pair[0]] = pair[1]; });
+                window.fetch(url, {
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    method: "POST",
+                    body: JSON.stringify(payload)
+                });
+            }
+            r.persist();
+        }
+    }
+    function trackAssignment(aid) {
+        if (c) return false;
+        c = true;
+        if (aid) {
+            sendTrackingData(n + "/attribution_tracking/conversions/assign", aid);
+        } else if (!g) {
+            sendTrackingData(n + "/attribution_tracking/conversions/assign");
+            g = true;
+            retryTracking();
+        }
+    }
+    function retryTracking() {
+        if (c || w >= d) return;
+        if (!e) {
+            sendTrackingData(n + "/attribution_tracking/conversions/assign");
+            c = true;
+        } else {
+            if (window.ga) {
+                trackWithGA(e, trackAssignment);
+            }
+            if (window.gtag) {
+                trackWithGtag(e, trackAssignment);
+            }
+            if (window.dataLayer) {
+                window.dataLayer.push(["get", e, "client_id", trackAssignment]);
+                trackAssignment("");
+            }
+        }
+        if (!window.gtag && !window.ga) {
+            retryTimeout();
+        }
+    }
+    function trackWithGA(trackingId, callback) {
+        var tracker;
+        if (window.ga && window.ga.getAll) {
+            window.ga.getAll().forEach(function(t) {
+                if (t.get("trackingId") === trackingId) {
+                    tracker = t;
+                }
+            });
+        }
+        if (tracker) {
+            callback(tracker.get("clientId"));
+        }
+    }
+    function trackWithGtag(trackingId, callback) {
+        window.gtag("get", trackingId, "client_id", callback);
+    }
+    function retryTimeout() {
+        if (w >= d) {
+            c = true;
+        } else {
+            window.setTimeout(retryTracking, 500 * fibonacci(w));
+            w += 1;
+        }
+    }
+    retryTracking();
+})(document.location.href);
+</script>
