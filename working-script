@@ -11,11 +11,12 @@
     var s = "";
 
     // Utility for managing localStorage
+    var d = new Date();
     var r = {
         allKeys: [],
         key: "",
         localStorageKey: "g2tracking",
-        date: ((t=new Date)=>(1e4*t.getFullYear()+100*t.getMonth()+t.getDate()).toString())(),
+        date: (1e4 * d.getFullYear() + 100 * d.getMonth() + d.getDate()).toString(),
         setKey: function(t) {
             this.key = t.map(function(pair) { return pair[1]; }).join(",").replace(/\s/g, "");
         },
